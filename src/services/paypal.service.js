@@ -37,5 +37,53 @@ export async function createOrder(serviceId, currency = 'USD') {
   });
 
   const response = await paypalClient().execute(request);
-  return response.result; // contains .id (the orderID)
+  return response.result; 
+}
+
+export async function captureOrder(orderID) {
+
+  // Step 1: tell PayPal to move the money
+  const request = new checkoutNodeJssdk.orders.OrdersCaptureRequest(orderID);
+  request.requestBody({});
+
+  const response = await paypalClient().execute(request);
+  const capture  = response.result;
+
+  // Step 2: verify the status is actually COMPLETED
+  // never assume — always check explicitly
+  if (capture.status !== 'COMPLETED') {
+    throw new Error(`Unexpected capture status: ${capture.status}`);
+  }
+
+  // Step 3: pull the captured amount and serviceId out of PayPal's response
+  // these came FROM PayPal — not from the client
+  const purchaseUnit   = capture.purchase_units[0];
+  const capturedAmount = purchaseUnit.payments.captures[0].amount.value;
+  const serviceId      = purchaseUnit.reference_id; // we set this in createOrder
+
+  // Step 4: re-verify the amount against YOUR catalog
+  // this is the check most tutorials skip
+  const item = getCatalogItem(serviceId); // throws if serviceId is unknown
+
+  if (capturedAmount !== item.price) {
+    // This should never happen in normal flow
+    // If it does, something serious is wrong — log it as a fraud alert
+    console.error(`[FRAUD ALERT] Amount mismatch on order ${orderID}:`, {
+      expected: item.price,
+      captured: capturedAmount,
+      serviceId
+    });
+    throw new Error('Payment amount mismatch. Please contact support.');
+  }
+
+  // Step 5: return clean data for the route handler
+  return {
+    orderId:   capture.id,
+    status:    capture.status,
+    serviceId,
+    amount:    capturedAmount,
+    currency:  purchaseUnit.payments.captures[0].amount.currency_code,
+    captureId: purchaseUnit.payments.captures[0].id, // needed for refunds later
+    email:     capture.payer?.email_address           // buyer's PayPal email
+  };
 }
