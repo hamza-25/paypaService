@@ -1,0 +1,33 @@
+{
+  "name": "paypaservice",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/hamza-25/paypaService#readme",
+  "bugs": {
+    "url": "https://github.com/hamza-25/paypaService/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamza-25/paypaService.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "@paypal/checkout-server-sdk": "^1.0.3",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.2",
+    "helmet": "^8.1.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
