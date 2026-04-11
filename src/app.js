@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "./db/database.js";
 import express from "express";
 import { validateEnv } from "./config/env.js";
 import {

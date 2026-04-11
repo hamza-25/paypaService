@@ -1,57 +1,122 @@
-import express from 'express';
-import { createOrder, captureOrder }      from '../services/paypal.service.js';
-import { validateOrderInput } from '../middleware/validateOrder.js';
+// import express from 'express';
+// import { createOrder, captureOrder }      from '../services/paypal.service.js';
+// import { validateOrderInput } from '../middleware/validateOrder.js';
+
+// const router = express.Router();
+
+// router.post('/', validateOrderInput, async (req, res) => {
+//   try {
+//     const { serviceId } = req.body;
+
+//     const order = await createOrder(serviceId);
+
+//     res.status(201).json({
+//       orderID: order.id
+//     });
+
+//   } catch (err) {
+//     console.error('[createOrder error]', err.message);
+//     res.status(500).json({
+//       error: 'Could not create order. Please try again.'
+//     });
+//   }
+// });
+
+// router.post('/:orderID/capture', async (req, res) => {
+//   try {
+//     const { orderID } = req.params;
+
+//     // basic sanity check on the orderID format
+//     // PayPal orderIDs are alphanumeric, 17 chars
+//     if (!orderID || !/^[A-Z0-9]{17}$/.test(orderID)) {
+//       return res.status(400).json({ error: 'Invalid orderID format' });
+//     }
+
+//     const result = await captureOrder(orderID);
+
+//     // TODO Phase 5: this is where you'd save to DB and send email
+
+//     // console.log('[captureOrder success]', result);
+
+//     res.status(200).json({
+//       success: true,
+//       details: result
+//     });
+
+//   } catch (err) {
+//     console.error('[captureOrder error]', err.message);
+
+//     // distinguish between fraud/mismatch and generic errors
+//     if (err.message.includes('mismatch')) {
+//       return res.status(422).json({ error: err.message });
+//     }
+
+//     res.status(500).json({ error: 'Payment capture failed. Please contact support.' });
+//   }
+// });
+
+// export default router;
+import express from "express";
+import { createOrder, captureOrder } from "../services/paypal.service.js";
+import { validateOrderInput } from "../middleware/validateOrder.js";
+import {
+  createOrder as dbCreateOrder,
+  markOrderPaid,
+} from "../db/orderRepository.js";
 
 const router = express.Router();
 
-router.post('/', validateOrderInput, async (req, res) => {
+router.post("/", validateOrderInput, async (req, res) => {
   try {
     const { serviceId } = req.body;
-
     const order = await createOrder(serviceId);
-
-    res.status(201).json({
-      orderID: order.id
-    });
-
+    res.status(201).json({ orderID: order.id });
   } catch (err) {
-    console.error('[createOrder error]', err.message);
-    res.status(500).json({
-      error: 'Could not create order. Please try again.'
-    });
+    console.error("[createOrder error]", err.message);
+    res
+      .status(500)
+      .json({ error: "Could not create order. Please try again." });
   }
 });
 
-router.post('/:orderID/capture', async (req, res) => {
+router.post("/:orderID/capture", async (req, res) => {
   try {
     const { orderID } = req.params;
 
-    // basic sanity check on the orderID format
-    // PayPal orderIDs are alphanumeric, 17 chars
     if (!orderID || !/^[A-Z0-9]{17}$/.test(orderID)) {
-      return res.status(400).json({ error: 'Invalid orderID format' });
+      return res.status(400).json({ error: "Invalid orderID format" });
     }
 
     const result = await captureOrder(orderID);
 
-    // TODO Phase 5: this is where you'd save to DB and send email
-
-    // console.log('[captureOrder success]', result);
-
-    res.status(200).json({
-      success: true,
-      details: result
+    // Step 1: create the order record (pending → paid in one go)
+    dbCreateOrder({
+      orderId: orderID,
+      serviceId: result.serviceId,
+      amount: result.amount,
+      currency: result.currency,
     });
 
-  } catch (err) {
-    console.error('[captureOrder error]', err.message);
+    // Step 2: mark it paid with capture details
+    markOrderPaid({
+      orderId: orderID,
+      captureId: result.captureId,
+      buyerEmail: result.email || null,
+    });
 
-    // distinguish between fraud/mismatch and generic errors
-    if (err.message.includes('mismatch')) {
+    console.log("[capture] order saved to DB:", orderID);
+
+    res.status(200).json({ success: true, details: result });
+  } catch (err) {
+    console.error("[captureOrder error]", err.message);
+
+    if (err.message.includes("mismatch")) {
       return res.status(422).json({ error: err.message });
     }
 
-    res.status(500).json({ error: 'Payment capture failed. Please contact support.' });
+    res
+      .status(500)
+      .json({ error: "Payment capture failed. Please contact support." });
   }
 });
 
