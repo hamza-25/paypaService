@@ -36,6 +36,8 @@ router.post('/:orderID/capture', async (req, res) => {
 
     // TODO Phase 5: this is where you'd save to DB and send email
 
+    // console.log('[captureOrder success]', result);
+
     res.status(200).json({
       success: true,
       details: result
