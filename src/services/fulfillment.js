@@ -1,4 +1,5 @@
 import { sendBuyerConfirmation, sendSellerNotification } from "./mailer.js";
+import { sendToN8n } from "./sendToN8N.js";
 
 export async function fulfillOrder({ captureId, serviceId, amount, email }) {
   console.log("[fulfillment] starting:", {
@@ -8,34 +9,8 @@ export async function fulfillOrder({ captureId, serviceId, amount, email }) {
     email,
   });
 
-  // send both emails in parallel — don't wait for one before the other
-  await Promise.allSettled([
-    // buyer confirmation — only if we have a real email
-    email && email !== "not-available"
-      ? sendBuyerConfirmation({
-          to: email,
-          serviceId,
-          amount,
-          captureId,
-        })
-          .then(() => console.log("[mailer] buyer email sent to:", email))
-          .catch((err) =>
-            console.error("[mailer] buyer email failed:", err.message),
-          )
-      : Promise.resolve(),
-
-    // seller notification — always
-    sendSellerNotification({
-      buyerEmail: email || "unknown",
-      serviceId,
-      amount,
-      captureId,
-    })
-      .then(() => console.log("[mailer] seller email sent"))
-      .catch((err) =>
-        console.error("[mailer] seller email failed:", err.message),
-      ),
-  ]);
-
-  console.log("[fulfillment] done:", captureId);
+  // send data to n8n for mail
+  sendToN8n({ captureId, serviceId, amount, email })
+    .then(() => console.log("[n8n] data sent successfully"))
+    .catch((err) => console.error("[n8n] failed to send data:", err.message));
 }
