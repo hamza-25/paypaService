@@ -4,6 +4,10 @@ const REQUIRED = [
   "PAYPAL_WEBHOOK_ID",
   "PAYPAL_MODE",
   "ALLOWED_ORIGINS",
+  "EMAIL_HOST",
+  "EMAIL_USER",
+  "EMAIL_PASS",
+  "SELLER_EMAIL",
 ];
 
 export function validateEnv() {
